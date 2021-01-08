@@ -28,11 +28,46 @@ static char stack[SX127X_STACKSIZE];
 static kernel_pid_t _recv_pid;
 
 
+
+typedef struct {
+	uint8_t rssi;
+	int8_t snr;
+	uint8_t mtype : 3;
+	char devAddr[4];
+	int8_t adr : 1;
+	int8_t adrack_req : 1;
+	int8_t ack : 1;
+	uint16_t fcnt;
+	int8_t fopts_len: 4;
+	//fopts sucks to put in in a static way
+	uint8_t fport;	
+} LoRaWAN_Packet;
+
+typedef struct LoRaWAN_Packet_List {
+	LoRaWAN_Packet packet;
+	struct LoRaWAN_Packet_List * next;
+} LoRaWAN_Packet_List;
+
+
+void printPacketList(LoRaWAN_Packet_List *head);
+
+LoRaWAN_Packet_List * list = NULL;
+
+LoRaWAN_Packet_List * getLastListItem(LoRaWAN_Packet_List *head){
+	if(head == NULL) return (LoRaWAN_Packet_List*)NULL;
+	LoRaWAN_Packet_List *item = head;
+	
+	while(item->next != NULL){
+		item = item->next;
+	}
+
+	return item;
+}
+
 void print_hex(const char *s){
 	printf("as string: %s\n", s);
 	printf("as hex:");
 	while(*s){
-		//printf("%02x", (unsigned int) *s++);
 		printf("%02x", (char) *s++);
 
 	}
@@ -55,51 +90,107 @@ void print_bin(const char *s, int len){
 
 }
 
-void processPacket(char *payload, int len){
+void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 	
-	char macHeader = payload[0];
 
-	//this is wrong, msg type is only determined by first 3 bits!
-	if(macHeader != 0b10000000 && macHeader != 0b00000000 && macHeader != 0b01000000){
-		//puts("droping packet");
+	char macHeader = payload[0];
+	uint8_t mtype = macHeader >> 5;
+
+	//if mtype not type of Join Request, Un-/Confirmed Data uplink then 
+	//either no LoRaWAN packet or type of packet we're not interested in
+	if(mtype != 0b100 && mtype != 0b000 && mtype != 0b010){
 		return;
 	}
 
-	printf("received Packet (len=%d):\n", len);
-
-	if(macHeader == 0b10000000){
-		printf("\tConfirmed Data Up Packet:\n");	
-	}else if(macHeader == 0b00000000){
-		printf("\tJoin Request Packet:\n");	
-	}else if(macHeader == 0b01000000){
-		printf("\tUnconfirmed Data Up Packet:\n");	
+	if(mtype == 0b000){
+		//packet is a join request
+		//LoRaWAN join requests should be 23 bytes
+		if(len != 23) return;
+	}else if(mtype == 0b100 || mtype == 0b010){
+		//packet is a data up
+		//LoRaWAN data up packets should be at least 12 bytes long
+		if(len < 12) return;
 	}
 
-	printf("\t\tDevice Address:\n\t\t\t");
 	char devAddr[4];
 	strncpy(devAddr, payload+1, 4);
-	print_bin(devAddr, 4);
 
-	printf("\t\tFrame Control:\n\t\t\t");
-	print_bin(payload+5, 1);
+	char fcntl[1];
+	strncpy(fcntl, payload+5, 1);
+	
+	int8_t adr = *fcntl >> 7;
+	int8_t adrack_req = (*fcntl >> 6) & 0b01;
+	int8_t ack = (*fcntl >> 5) & 0b001;
+	int8_t fopts_len = *fcntl & 0b00001111;
 
-	printf("\t\tFrame Count: %d", (payload[6]+(payload[7] << 8)));
+	uint16_t fcnt = payload[6]+(payload[7] << 8);
 
-	for(int i = 8; i<len; i++){
-		char byte = payload[i];
-		(void)byte;
-		//process rest payload
-		// after Frame count
-		//0..15 bytes Frame options for cmds used to change data rate, transmission power, connection validaiton etc.
-		//0..1 byte Frame Port idk
+	uint8_t fport = payload[8+fopts_len];
+
+
+
+	LoRaWAN_Packet_List *newItem = (LoRaWAN_Packet_List*) malloc(sizeof(LoRaWAN_Packet_List));
+	if(newItem != NULL){
+		newItem->packet.rssi = rssi;
+		newItem->packet.snr = snr;
+		newItem->packet.mtype = mtype;
+		strcpy(newItem->packet.devAddr, devAddr);
+		newItem->packet.adrack_req = adrack_req;
+		newItem->packet.adr = adr;
+		newItem->packet.ack = ack;
+		newItem->packet.fcnt = fcnt;
+		newItem->packet.fopts_len = fopts_len;
+		newItem->packet.fport = fport;
+		newItem->next = NULL;
+
+
+		LoRaWAN_Packet_List * lastListItem = getLastListItem(list);
+		if(lastListItem == NULL){
+			list = newItem;
+		}else{
+			lastListItem->next = newItem;
+		}
 
 	}
 
+	printPacketList(list);
+}
 
+void printPacketList(LoRaWAN_Packet_List *head){
+	if(head == NULL) return;
+	LoRaWAN_Packet_List *item = head;
 
+	while(item != NULL){
+		if(item->packet.mtype == 0b000){
+			printf("\tJoin Request Packet:\n");	
+		}else if(item->packet.mtype == 0b100){
+			printf("\tConfirmed Data Up Packet:\n");	
+		}else if(item->packet.mtype == 0b010){
+			printf("\tUnconfirmed Data Up Packet:\n");	
+		}
+		printf("\t\tRSSI: %d\n", item->packet.rssi);
+		printf("\t\tSNR: %d\n", item->packet.snr);
+		
+		printf("\t\tDevice Address:\n\t\t\t");
+		print_bin(item->packet.devAddr, 4);
 
+		printf("\t\tADR:\t\t%d\n", item->packet.adr);
+		printf("\t\tADRACK_Req:\t%d\n", item->packet.adrack_req);
+		printf("\t\tACK:\t\t%d\n", item->packet.ack);
 
-	puts(" ");
+		printf("\t\tFrame Count:\t%d\n", item->packet.fcnt);
+
+		printf("\t\tFOpts_len:\t%d\n", item->packet.fopts_len);
+		printf("\t\tFPort:\t%d\n", item->packet.fport);
+
+		puts(" ");
+
+		item = item->next;
+
+	}
+
+	
+
 
 
 }
@@ -133,7 +224,7 @@ static void _event_cb(netdev_t *dev, netdev_event_t event){
 				len = dev->driver->recv(dev, NULL, 0, 0);
 				dev->driver->recv(dev, payload, len, &packet_info);
 
-				processPacket(payload, len);
+				processPacket(payload, len, packet_info.rssi, packet_info.snr);
 				
 				break;
 
@@ -156,7 +247,7 @@ static void _event_cb(netdev_t *dev, netdev_event_t event){
 
 void *_recv_thread(void *arg){
 	(void)arg;
-	//puts("start recv thread");
+	puts("start recv thread");
 	static msg_t _msg_q[SX127X_LORA_MSG_QUEUE];
 	msg_init_queue(_msg_q, SX127X_LORA_MSG_QUEUE);
 
