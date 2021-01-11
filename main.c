@@ -14,19 +14,33 @@
 
 #include <xtimer.h>
 
-#define SX127X_LORA_MSG_QUEUE	(16U)
+#define SX127X_LORA_MSG_QUEUE		(16U)
 
-#define SX127X_STACKSIZE 		(THREAD_STACKSIZE_DEFAULT)
+#define SX127X_STACKSIZE 			(THREAD_STACKSIZE_DEFAULT)
 
-#define MSG_TYPE_ISR			(0x3456)
+#define CHANNEL_SWITCH_STACKSIZE	(THREAD_STACKSIZE_DEFAULT)
+
+#define MSG_TYPE_ISR				(0x3456)
+
+
+#ifndef CHANNEL_FREQ_LORA
+#define CHANNEL_FREQ_LORA
+
+const uint32_t freq[] = {867100000, 867500000, 867700000, 867900000, 868100000, 868300000, 868500000};
+
+#endif
+
+
 
 sx127x_t sx127x;
 
 static char payload[32];
 
-static char stack[SX127X_STACKSIZE];
+static char stack_recv[SX127X_STACKSIZE];
 static kernel_pid_t _recv_pid;
 
+static char stack_channel[CHANNEL_SWITCH_STACKSIZE];
+static kernel_pid_t _channel_pid;
 
 
 typedef struct {
@@ -39,7 +53,7 @@ typedef struct {
 	int8_t ack : 1;
 	uint16_t fcnt;
 	int8_t fopts_len: 4;
-	//fopts sucks to put in in a static way
+	//fopts as char array?
 	uint8_t fport;	
 } LoRaWAN_Packet;
 
@@ -189,18 +203,11 @@ void printPacketList(LoRaWAN_Packet_List *head){
 
 	}
 
-	
-
-
-
 }
 
+
 static void _event_cb(netdev_t *dev, netdev_event_t event){
-	//puts("callback called");
-
 	if(event == NETDEV_EVENT_ISR) {
-		//puts("event = ISR");		
-
 		msg_t msg;
 		msg.type = MSG_TYPE_ISR;
 		msg.content.ptr = dev;
@@ -210,15 +217,13 @@ static void _event_cb(netdev_t *dev, netdev_event_t event){
 		}
 
 	}else{
-
-
 		size_t len;
 		netdev_lora_rx_info_t packet_info;
 
 		switch (event) {
 
 			case NETDEV_EVENT_RX_STARTED:
-				//puts("received rx_started event");
+				
 				break;
 			case NETDEV_EVENT_RX_COMPLETE:
 				len = dev->driver->recv(dev, NULL, 0, 0);
@@ -229,7 +234,7 @@ static void _event_cb(netdev_t *dev, netdev_event_t event){
 				break;
 
 			default:
-				//puts("received unknow event");
+				
 				break;
 
 		}
@@ -255,13 +260,36 @@ void *_recv_thread(void *arg){
 		msg_t msg;
 		msg_receive(&msg);
 		if(msg.type == MSG_TYPE_ISR){
-			//puts("_recv_thread got ISR msg");
 			netdev_t *dev = msg.content.ptr;
 			dev->driver->isr(dev);
 		}
 
 	}
 	
+
+}
+
+void * _channel_thread(void *arg){
+	(void)arg;
+	puts("start channel thread");
+	
+	uint8_t freq_counter = 0;
+
+	while(1){
+		xtimer_msleep(1);
+
+		netdev_t *netdev = (netdev_t *)&sx127x;
+
+		uint32_t chan = freq[freq_counter];
+		netdev->driver->set(netdev, NETOPT_CHANNEL_FREQUENCY, &chan, sizeof(chan));
+
+		freq_counter++;
+		if(freq_counter > sizeof(freq)/sizeof(freq[0])-1){
+			freq_counter = 0;		
+		}
+
+	}
+
 
 }
 
@@ -289,27 +317,17 @@ void setup_driver(void){
 	netdev->driver->set(netdev, NETOPT_SPREADING_FACTOR, &lora_sf, sizeof(lora_sf));
 	netdev->driver->set(netdev, NETOPT_CODING_RATE, &lora_cr, sizeof(lora_cr));
 
-	uint32_t chan;// = 867500000
-	//netdev->driver-set(netdev, NETOPT_CHANNEL_FREQUENCY, &chan, sizeof(chan));
-
-	netdev->driver->get(netdev, NETOPT_CHANNEL_FREQUENCY, &chan, sizeof(chan));
-	printf("Sniffing on channel: %i\n", (int)chan);
+	uint32_t chan = 868300000
+	netdev->driver->set(netdev, NETOPT_CHANNEL_FREQUENCY, &chan, sizeof(chan));
 
 }
 
 int main(void){
 
 	puts("LoRaWAN packet sniffer");
-	
-	//print_bin("ab", 2);
-
-	//sx127x_setup(&sx127x, &sx127x_params[0], 0);
-	//sx127x_init(&sx127x);
-	//sx127x_init_radio_settings(&sx127x);
 
 	sx127x.params = sx127x_params[0];
 	netdev_t *netdev = (netdev_t *)&sx127x;
-	//no clue where sx127x_driver comes from
 	netdev->driver = &sx127x_driver;
 
 	if(netdev->driver->init(netdev) < 0){
@@ -320,21 +338,24 @@ int main(void){
 
 	netdev->event_callback = _event_cb;
 
-	_recv_pid = thread_create(stack, sizeof(stack), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _recv_thread, NULL, "recv_thread");
 
-
+	_recv_pid = thread_create(stack_recv, sizeof(stack_recv), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _recv_thread, NULL, "recv_thread");
 	if(_recv_pid <= KERNEL_PID_UNDEF){
 		puts("Creation of recv_thread failed");
 		return 1;
 	}
 
-
 	setup_driver();
 	start_listen();
 
+
+	_channel_pid = thread_create(stack_channel, sizeof(stack_channel), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _channel_thread, NULL, "channel_thread");
+	if(_channel_pid <= KERNEL_PID_UNDEF){
+		puts("Creation of channel_thread failed");
+		return 1;
+	}
+
 	while(1){
-		xtimer_sleep(60);
-		//puts("Minute has passed");
 		
 	}
 
