@@ -1,4 +1,4 @@
-APPLICATION=testsx127x
+APPLICATION=LoRa_Scanner
 
 BOARD ?= b-l072z-lrwan1
 
