@@ -24,7 +24,6 @@
 #define SX127X_LORA_MSG_QUEUE		(16U)
 
 #define SX127X_STACKSIZE 			(THREAD_STACKSIZE_DEFAULT)
-#define CAD_STACKSIZE				(THREAD_STACKSIZE_DEFAULT)
 
 /* message type for isr msg */
 #define MSG_TYPE_ISR				(0x3456)
