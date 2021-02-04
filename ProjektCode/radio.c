@@ -20,16 +20,11 @@ static char payload[32];
 static char stack_recv[SX127X_STACKSIZE];
 static kernel_pid_t _recv_pid;
 
-/* channel activity detection thread */
-static char stack_cad[CAD_STACKSIZE];
-static kernel_pid_t _cad_pid;
-
 /* possible LoRaWAN frequencies */
-const uint32_t freq[] = {867100000, 867500000, 867700000, 867900000, 868100000, 868300000, 868500000};
+const uint32_t freq[] = {867100000, 867300000, 867500000, 867700000, 867900000, 868100000, 868300000, 868500000};
 
 
 void * _recv_thread(void *arg);
-void * _cad_thread(void *arg);
 
 
 /*
@@ -43,6 +38,7 @@ void * _cad_thread(void *arg);
  * returns: void
  */
 static void _event_cb(netdev_t *dev, netdev_event_t event){
+	
 	if(event == NETDEV_EVENT_ISR) {
 		/* send msg to receive thread that ISR was received */
 		msg_t msg;
@@ -70,6 +66,27 @@ static void _event_cb(netdev_t *dev, netdev_event_t event){
 				processPacket(payload, len, packet_info.rssi, packet_info.snr);
 
 				break;
+			/* receive cad done event */
+			case NETDEV_EVENT_CAD_DONE:
+				puts("received cad done event");
+				
+				for(uint16_t i = 0; i<sizeof(freq)/sizeof(freq[0]); i++){
+					printf("test channel %lu", freq[i]);
+					puts("");
+					bool free = sx127x_is_channel_free(&sx127x, freq[i], -80);
+					if(!free){
+						printf("activity on channel %lu", freq[i]);
+						puts("");
+						/* start listening on detected channel */
+						start_listen(freq[i]);
+						break;
+					}			
+				}
+
+				len = dev->driver->recv(dev, NULL, 0, 0);
+				dev->driver->recv(dev, payload, len, &packet_info);
+
+				processPacket(payload, len, packet_info.rssi, packet_info.snr);
 
 			default:
 				
@@ -107,8 +124,7 @@ int init_radio(void){
 
 	netdev->event_callback = _event_cb;
 	
-	setup_driver();
-	start_listen(868300000);
+	
 
 	_recv_pid = thread_create(stack_recv, sizeof(stack_recv), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _recv_thread, NULL, "recv_thread");
 	if(_recv_pid <= KERNEL_PID_UNDEF){
@@ -116,11 +132,10 @@ int init_radio(void){
 		return 1;
 	}
 
-	_cad_pid = thread_create(stack_cad, sizeof(stack_cad), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _cad_thread, NULL, "cad_thread");
-	if(_cad_pid <= KERNEL_PID_UNDEF){
-		puts("Creation of cad_thread failed");
-		return 1;
-	}
+	setup_driver();
+	start_listen(868300000);
+
+	sx127x_start_cad(&sx127x);
 
 	return 0;
 } 
@@ -146,7 +161,6 @@ void start_listen(uint32_t channel){
 
 	netopt_state_t state = NETOPT_STATE_RX;
 	netdev->driver->set(netdev, NETOPT_STATE, &state, sizeof(state));
-	puts("channel set");
 }
 
 /*
@@ -170,40 +184,6 @@ void setup_driver(void){
 	uint32_t chan = 868300000;
 	netdev->driver->set(netdev, NETOPT_CHANNEL_FREQUENCY, &chan, sizeof(chan));
 
-}
-
-/*
- * Function: _cad_thread
- * -------------------------
- * thread function for channel activity detection
- * switches through channels - if activity is found sets the radio to listen on that channel
- * 
- * arg: 
- *
- * returns: void
- */
-void * _cad_thread(void *arg){
-	(void)arg;
-	puts("start cad thread");
-
-	while(1){
-		
-		/* go through possible LoRa channel and test for activity on those channels */
-		for(uint16_t i = 0; i<sizeof(freq)/sizeof(freq[0]); i++){
-			bool free = sx127x_is_channel_free(&sx127x, freq[i], -80);
-			if(!free){
-				printf("activity on channel %lu", freq[i]);
-				puts("");
-				/* start listening on detected channel */
-				start_listen(freq[i]);
-			}			
-			
-		}
-		
-		
-		xtimer_msleep(1);
-
-	}
 }
 
 /*
