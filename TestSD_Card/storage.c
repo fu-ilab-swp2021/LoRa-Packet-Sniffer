@@ -96,7 +96,7 @@ int stor_write_ln(char *line, size_t len){
 int stor_file_exists(char* filename){
 	
 	char file[FILENAME_MAXLEN];
-	snprintf(file, FILENAME_MAXLEN, "%s%s", MOUNT_POINT, filename);
+	snprintf(file, FILENAME_MAXLEN, "%s%s%s", MOUNT_POINT, "/", filename);
 
 	int f = vfs_open(file, (O_WRONLY | O_APPEND), 0);
 	if(f < 0){
@@ -118,28 +118,29 @@ int stor_file_exists(char* filename){
  * returns: void
  */
 void stor_flush(char* filename){
-
 	size_t len;
 	char file[FILENAME_MAXLEN];
-	snprintf(file, FILENAME_MAXLEN, "%s%s", MOUNT_POINT, filename);
-
+	snprintf(file, FILENAME_MAXLEN, "%s%s%s", MOUNT_POINT, "/",filename);
+        //printf("test_mutex\n");
 	mutex_lock(&_buflock);
+	//printf("test_mutex2\n");
 	memcpy(_fsbuf, _inbuf, _inbuf_pos);
 	len = _inbuf_pos;
 	_inbuf_pos = 0;
-	mutex_lock(&_buflock);
+	mutex_unlock(&_buflock);
 
 	if (len == 0) {
 		return;
 	}
-
+        printf("test_open %s\n", file);
 	int f = vfs_open(file, (O_CREAT | O_WRONLY | O_APPEND), 0);
 	if(f < 0){
 		return;
 	}
+	printf("test_write\n");
 	int n = vfs_write(f, _fsbuf, len);
 	(void)n;
-	
+	printf("test_close\n");
 	vfs_close(f);
 
 }

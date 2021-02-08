@@ -14,7 +14,7 @@
 #include "board.h"
 #include "periph/gpio.h"
 
-bool running = false;
+static bool running = false;
 
 
 void toggle_running(void *arg)
@@ -27,30 +27,38 @@ void toggle_running(void *arg)
 
 int main(void)
 {
-	puts("SD Card test application");
-	init_storage();
+	xtimer_sleep(2);
+	printf("SD Card test application\n");
 
+	int res=init_storage();
+
+	if(res==1){
+	printf("error\n");
+	}
 
 	#if defined(MODULE_PERIPH_GPIO_IRQ) && defined(BTN_B1_PIN)
-		gpio_init_int(BTN_B1_PIN, GPIO_IN_PU, GPIO_BOTH, toggle_running, NULL);
+		gpio_init_int(BTN_B1_PIN, GPIO_IN_PU, GPIO_RISING, toggle_running, NULL);
 
 	#endif
 
 	char fileName[30] = "testFile";
-	printf("Does File exist: %d", stor_file_exists(fileName));
+	printf("Does File exist: %d \n", stor_file_exists(fileName));
 
 	while(1){
 		if(running){
 			/* write to sd card */
 
 			char testLine[30] = "this is a test line\n";
+		        printf("test1 %d\n", sizeof(testLine));
 			stor_write_ln(testLine, sizeof(testLine));
+		        printf("test2\n");
 			stor_flush(fileName);
-			printf("Does File exist: %d", stor_file_exists(fileName));
+		        printf("test3\n");
+			printf("Does File exist: %d \n", stor_file_exists(fileName));
 
 		}
 
-		xtimer_msleep(5000);
+		xtimer_usleep(50000);
 	}
 
 	return 0;

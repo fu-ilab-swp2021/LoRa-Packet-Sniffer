@@ -14,6 +14,6 @@ USEMODULE += periph_gpio_irq
 
 DEVELHELP ?= 1
 
-RIOTBASE ?= $(CURDIR)/../RIOT
+RIOTBASE ?= $(CURDIR)/../../RIOT
 
 include $(RIOTBASE)/Makefile.include  

@@ -17,7 +17,7 @@ void btn_press(void *arg)
     (void) arg;
 	puts("Button pressed");
 
-	LED0_TOGGLE;
+	LED1_TOGGLE;
 }
 
 int main(void)
@@ -27,12 +27,12 @@ int main(void)
 
 	#if defined(MODULE_PERIPH_GPIO_IRQ) && defined(BTN_B1_PIN)
 		//gpio_init_int(BTN_B1_PIN, GPIO_IN_PD, GPIO_BOTH, btn_press, NULL);
-		gpio_init_int(BTN_B1_PIN, GPIO_IN_PU, GPIO_BOTH, btn_press, NULL);
+		gpio_init_int(BTN_B1_PIN, GPIO_IN_PU, GPIO_RISING, btn_press, NULL);
 
 	#endif
 
 	while(1){
-		xtimer_msleep(5000);
+		xtimer_usleep(5000);
 	}
 
 	return 0;
