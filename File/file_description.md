@@ -25,8 +25,8 @@ The fields for each record describe the following:
 **MType** (int 2, 4, or 0):
 - message type of the packet
 	>0 - join request
-	2 - unconfirmed data up packet
-	4 - confirmed data up packet
+	>2 - unconfirmed data up packet
+	>4 - confirmed data up packet
 	
 **DevAddr** (string, 8 chars):
 - device address as hex string
@@ -54,8 +54,8 @@ The fields for each record describe the following:
 **FPort** (int 0 - 255):
 	
 >0 Frame Payload is MAC Commands
-	1..223 application specific
-	224..255 Reserved for Future Use
+>1..223 application specific
+>224..255 Reserved for Future Use
 
 
  
