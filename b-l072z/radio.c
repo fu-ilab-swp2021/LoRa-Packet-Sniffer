@@ -340,19 +340,18 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 				strncpy(foptsString+i*2, hex, 2);
 			}
 			snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%d\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, foptsString, fport);
-		}*/	
+		}*/
+
 		char foptsString[fopts_len*2+1];
 		for(int i = 0; i<fopts_len; i++){
-			char hex[2];
+			char hex[3];
 			snprintf(hex, sizeof hex, "%02X", (unsigned char)fopts[i]);
-			if (strlen(hex) == 1){
-			    strncpy(foptsString+i*2, "0", 1);
-			    strncpy(foptsString+i*2+1, hex, 1);
-		        }else{
-			    strncpy(foptsString+i*2, hex, 2);
-			}
-		}
+			strncpy(foptsString+i*2, hex, 2);
+		}	
 		strncpy(foptsString+fopts_len*2, "\0", 1);
+
+
+
 		printf("%lu \n", time_since_start);
 		printf("%d \n", strlen(foptsString));
 		printf("%s \n", foptsString);
