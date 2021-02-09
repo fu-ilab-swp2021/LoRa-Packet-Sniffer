@@ -25,6 +25,8 @@ const uint32_t freq[] = {867100000, 867300000, 867500000, 867700000, 867900000, 
 static bool write_to_sd_card = false;
 static char filename[30];
 
+static uint64_t start_time;
+
 void start_listen(uint32_t channel);
 void setup_driver(void);
 void * _recv_thread(void *arg);
@@ -139,6 +141,8 @@ void start_sniffing(void)
 
 	char* headerLine = "Time,ChannelFreq,RSSI,SNR,MType,DevAddr,ADR,ADRACKReq,ACK,FCnt,FOptsLen,FOpts,FPort";
 	write_storage(filename, headerLine, sizeof(headerLine));
+
+	start_time = xtimer_now64().ticks64;
 
 	write_to_sd_card = true;
 }
@@ -283,7 +287,8 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 	if(write_to_sd_card){
 		char line[150];		
 		
-		uint64_t time = xtimer_now64().ticks64;
+		uint64_t now_time = xtimer_now64().ticks64;
+		uint64_t time_since_start = now_time-start_time;
 
 		netdev_t *netdev = (netdev_t *)&sx127x;
 		uint32_t chan = netdev->driver->get(netdev, NETOPT_CHANNEL_FREQUENCY, &chan, sizeof(chan));
@@ -294,7 +299,7 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 		//file format csv
 		//Time,ChannelFreq,RSSI,SNR,MType,DevAddr,ADR,ADRACKReq,ACK,FCnt,FOptsLen,FOpts,FPort	
 		if(fopts_len == 0){
-			snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u", time, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, " ", fport);
+			snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, " ", fport);
 		}else{
 			char foptsString[fopts_len*2];
 			for(int i = 0; i<fopts_len; i++){
@@ -302,7 +307,7 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 				snprintf(hex, sizeof hex, "%02X", (unsigned char)fopts[i]);
 				strncpy(foptsString+i*2, hex, 2);
 			}
-			snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u", time, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, foptsString, fport);
+			snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, foptsString, fport);
 		}	
 
 		
