@@ -1,7 +1,7 @@
 /*
  * header for the sd card and file system
  * Author: Cedric Ressler
- * Date: 03.02.2021
+ * Date: 09.02.2021
  *
  */
 
@@ -19,10 +19,9 @@
 #include <sdcard_spi_params.h>
 
 
+#define MOUNT_POINT			"/f"
 
 #define FILENAME_MAXLEN		(30U)
-
-#define FSBUF_SIZE		15360U
 
 /*
  * Function: init_storage
@@ -35,23 +34,29 @@
 int init_storage(void);
 
 /*
- * Function: stor_write_ln
+ * Function: file_exists_storage
  * -------------------------
- * write line to buffer to be written on sd card on flush
+ * tests if a file exists
  *
- * returns: 0 if successful
- *			1 if an error occured
+ * filename: name of the file to test
+ *
+ * returns: 0 if file doesnt exist
+ * 			1 if file exists
  */
-int stor_write_ln(char *line, size_t len);
+int file_exists_storage(char* filename);
 
 /*
- * Function: stor_flush
+ * Function: write_storage
  * -------------------------
- * write the buffer to the sd card
+ * write the line to the file on the sd card
+ *
+ * filename: 	name of the file to write to
+ * line: 		line to be written to file
+ * len:			length of line
  *
  * returns: void
  */
-void stor_flush(void);
+void write_storage(char *filename, char *line, size_t len);
 
 
 #endif 
