@@ -24,16 +24,14 @@
 #define SX127X_LORA_MSG_QUEUE		(16U)
 
 #define SX127X_STACKSIZE 			(THREAD_STACKSIZE_DEFAULT)
+#define FILE_START_STACKSIZE 			(THREAD_STACKSIZE_DEFAULT)
 
 /* message type for isr msg */
 #define MSG_TYPE_ISR				(0x3456)
-#define MSG_TYPE_START_SNIFFING		(0x3457)
 
 /* frequency the radio listens on */
 #define FREQ						(868300000)
 
-/* receive thread */
-static kernel_pid_t _recv_pid;
 
 /*
  * Function: init_radio

@@ -16,7 +16,11 @@ sx127x_t sx127x;
 static char payload[32];
 
 /* receive thread */
+static kernel_pid_t _recv_pid;
 static char stack_recv[SX127X_STACKSIZE];
+
+static kernel_pid_t _file_start_pid;
+static char stack_file_start[FILE_START_STACKSIZE];
 
 /* possible LoRaWAN frequencies */
 const uint32_t freq[] = {867100000, 867300000, 867500000, 867700000, 867900000, 868100000, 868300000, 868500000};
@@ -29,6 +33,7 @@ static uint64_t start_time;
 void start_listen(uint32_t channel);
 void setup_driver(void);
 void * _recv_thread(void *arg);
+void *_file_start_thread(void *arg);
 void processPacket(char *payload, int len, uint8_t rssi, int8_t snr);
 
 
@@ -131,6 +136,26 @@ int init_radio(void)
  */
 void start_sniffing(void)
 {
+	_file_start_pid = thread_create(stack_file_start, sizeof(stack_file_start), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _file_start_thread, NULL, "file_start_thread");
+	if(_file_start_pid <= KERNEL_PID_UNDEF){
+		puts("Creation of file_start_thread failed");
+		return;
+	}
+}
+
+/*
+ * Function: _file_start_thread
+ * -------------------------
+ * thread function to start the file on the sd card
+ * 
+ * arg: 
+ *
+ * returns: void
+ */
+void *_file_start_thread(void *arg)
+{
+	(void)arg;
+	
 	int i = 1;
 	snprintf(filename, sizeof filename, "%s_%d", "lora_data", i);
 	while(file_exists_storage(filename)){
@@ -144,6 +169,7 @@ void start_sniffing(void)
 	start_time = xtimer_now64().ticks64;
 
 	write_to_sd_card = true;
+	return NULL;
 }
 
 /*
@@ -224,8 +250,6 @@ void *_recv_thread(void *arg){
 		if(msg.type == MSG_TYPE_ISR){
 			netdev_t *dev = msg.content.ptr;
 			dev->driver->isr(dev);
-		}else if(msg.type == MSG_TYPE_START_SNIFFING){
-			start_sniffing();
 		}
 		
 	}
