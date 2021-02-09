@@ -17,7 +17,6 @@ static char payload[32];
 
 /* receive thread */
 static char stack_recv[SX127X_STACKSIZE];
-static kernel_pid_t _recv_pid;
 
 /* possible LoRaWAN frequencies */
 const uint32_t freq[] = {867100000, 867300000, 867500000, 867700000, 867900000, 868100000, 868300000, 868500000};
@@ -225,7 +224,10 @@ void *_recv_thread(void *arg){
 		if(msg.type == MSG_TYPE_ISR){
 			netdev_t *dev = msg.content.ptr;
 			dev->driver->isr(dev);
+		}else if(msg.type == MSG_TYPE_START_SNIFFING){
+			start_sniffing();
 		}
+		
 	}
 }
 

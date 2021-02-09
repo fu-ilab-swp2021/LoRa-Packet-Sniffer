@@ -27,7 +27,14 @@ void toggle_running(void *arg)
 	puts("Button pressed");
 	running = !running;
 	if(running){
-		start_sniffing();
+		//start_sniffing();
+		msg_t msg;
+		msg.type = MSG_TYPE_START_SNIFFING;
+
+		if(msg_send(&msg, _recv_pid) <= 0){
+			puts("Error start sniffing msg_send");
+		}
+
 		LED1_ON;
 	}else{
 		stop_sniffing();
