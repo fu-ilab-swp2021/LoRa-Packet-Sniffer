@@ -63,7 +63,7 @@ int file_exists_storage(char* filename)
 	char file[FILENAME_MAXLEN];
 	snprintf(file, FILENAME_MAXLEN, "%s%s%s", MOUNT_POINT, "/", filename);
 
-	int f = vfs_open(file, (O_WRONLY | O_APPEND), 0);
+	int f = vfs_open(file, (O_RDONLY), 0);
 	if(f < 0){
 		return 0;
 	}
@@ -91,13 +91,14 @@ void write_storage(char *filename, char *line, size_t len)
 	if (len == 0) {
 		return;
 	}
-
+        printf("%s\n",file);
+	printf("%d,%d\n",sizeof(file),strlen(file));
 	int f = vfs_open(file, (O_CREAT | O_WRONLY | O_APPEND), 0);
+
 	if(f < 0){
-		puts("Error on vfs_open");
+		printf("Error on vfs_open:\n");
 		return;
 	}
-
 	int n = vfs_write(f, line, len);
 	if(n < 0){
 		puts("Error on vfs_write");

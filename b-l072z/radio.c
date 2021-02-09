@@ -28,7 +28,7 @@ const uint32_t freq[] = {867100000, 867300000, 867500000, 867700000, 867900000, 
 static bool write_to_sd_card = false;
 static char filename[30];
 
-static uint64_t start_time;
+static uint32_t start_time;
 
 void start_listen(uint32_t channel);
 void setup_driver(void);
@@ -157,16 +157,19 @@ void *_file_start_thread(void *arg)
 	(void)arg;
 	
 	int i = 1;
-	snprintf(filename, sizeof filename, "%s_%d", "lora_data", i);
+	snprintf(filename, sizeof filename, "%s_%d", "data", i);
+	printf("%s\n", filename);
 	while(file_exists_storage(filename)){
+		printf("%s\n", filename);
 		i++;
-		snprintf(filename, sizeof filename, "%s_%d", "lora_data", i);
+		snprintf(filename, sizeof filename, "%s_%d", "data", i);
 	}
+	printf("testwhile\n");
 
-	char* headerLine = "Time,ChannelFreq,RSSI,SNR,MType,DevAddr,ADR,ADRACKReq,ACK,FCnt,FOptsLen,FOpts,FPort";
-	write_storage(filename, headerLine, sizeof(headerLine));
+	char* headerLine = "Time,ChannelFreq,RSSI,SNR,MType,DevAddr,ADR,ADRACKReq,ACK,FCnt,FOptsLen,FOpts,FPort\n";
+	write_storage(filename, headerLine, strlen(headerLine));
 
-	start_time = xtimer_now64().ticks64;
+	start_time = xtimer_now().ticks32;
 
 	write_to_sd_card = true;
 	return NULL;
@@ -315,19 +318,20 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 	if(write_to_sd_card){
 		char line[150];		
 		
-		uint64_t now_time = xtimer_now64().ticks64;
-		uint64_t time_since_start = now_time-start_time;
+		uint32_t now_time = xtimer_now().ticks32;
+		uint32_t time_since_start = now_time-start_time;
 
 		netdev_t *netdev = (netdev_t *)&sx127x;
-		uint32_t chan = netdev->driver->get(netdev, NETOPT_CHANNEL_FREQUENCY, &chan, sizeof(chan));
+		uint32_t chan;
+	       	netdev->driver->get(netdev, NETOPT_CHANNEL_FREQUENCY, &chan, sizeof(chan));
 		
 		char devAddrString[8];
 		snprintf(devAddrString, sizeof devAddrString, "%02X%02X%02X%02X", (unsigned char)devAddr[0], (unsigned char)devAddr[1], (unsigned char)devAddr[2], (unsigned char)devAddr[3]);	
 	
 		//file format csv
 		//Time,ChannelFreq,RSSI,SNR,MType,DevAddr,ADR,ADRACKReq,ACK,FCnt,FOptsLen,FOpts,FPort	
-		if(fopts_len == 0){
-			snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, " ", fport);
+		/*if(fopts_len == 0){
+		 	snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%d\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, " ", fport);
 		}else{
 			char foptsString[fopts_len*2];
 			for(int i = 0; i<fopts_len; i++){
@@ -335,12 +339,51 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 				snprintf(hex, sizeof hex, "%02X", (unsigned char)fopts[i]);
 				strncpy(foptsString+i*2, hex, 2);
 			}
-			snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, foptsString, fport);
-		}	
+			snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%d\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, foptsString, fport);
+		}*/	
+		char foptsString[fopts_len*2+1];
+		for(int i = 0; i<fopts_len; i++){
+			char hex[2];
+			snprintf(hex, sizeof hex, "%02X", (unsigned char)fopts[i]);
+			if (strlen(hex) == 1){
+			    strncpy(foptsString+i*2, "0", 1);
+			    strncpy(foptsString+i*2+1, hex, 1);
+		        }else{
+			    strncpy(foptsString+i*2, hex, 2);
+			}
+		}
+		strncpy(foptsString+fopts_len*2, "\0", 1);
+		printf("%lu \n", time_since_start);
+		printf("%d \n", strlen(foptsString));
+		printf("%s \n", foptsString);
+		snprintf(line, sizeof line, "%lu, %u, %d, %u, %s, %d, %d, %d, %u, %d, %u \n", chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, fport);
+		printf("%s\n", line);
+                if(mtype == 0b000){
+                    printf("\tJoin Request Packet:\n");
+                }else if(mtype == 0b100){
+                    printf("\tConfirmed Data Up Packet:\n");
+                }else if(mtype == 0b010){
+                    printf("\tUnconfirmed Data Up Packet:\n");
+                }
+                printf("\t\tRSSI: %d\n", rssi);
+                printf("\t\tSNR: %d\n", snr);
+                
+                printf("\t\tDevice Address:\n\t\t\t");
+                printf("%s", devAddrString);
+                
+                printf("\t\tADR:\t\t%d\n", adr);
+                printf("\t\tADRACK_Req:\t%d\n", adrack_req);
+                printf("\t\tACK:\t\t%d\n", ack);
+                
+                printf("\t\tFrame Count:\t%d\n", fcnt);
+                printf("\t\tFOpts_len:\t%d\n", fopts_len);
+                printf("\t\tFPort:\t%d\n", fport);
+                
+                puts(" ");
 
 		
 
-		write_storage(filename, line, sizeof(line));
+		write_storage(filename, line, strlen(line));
 
 	}
 }
