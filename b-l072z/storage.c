@@ -91,17 +91,15 @@ void write_storage(char *filename, char *line, size_t len)
 	if (len == 0) {
 		return;
 	}
-        printf("%s\n",file);
-	printf("%d,%d\n",sizeof(file),strlen(file));
-	int f = vfs_open(file, (O_CREAT | O_WRONLY | O_APPEND), 0);
 
+	int f = vfs_open(file, (O_CREAT | O_WRONLY | O_APPEND), 0);
 	if(f < 0){
-		printf("Error on vfs_open:\n");
+		printf("Error on vfs_open\n");
 		return;
 	}
 	int n = vfs_write(f, line, len);
 	if(n < 0){
-		puts("Error on vfs_write");
+		printf("Error on vfs_write\n");
 	}
 	
 	vfs_close(f);
