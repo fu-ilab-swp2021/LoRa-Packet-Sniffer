@@ -21,7 +21,7 @@
 
 #define MOUNT_POINT			"/f"
 
-#define FILENAME_MAXLEN		(30U)
+#define FILENAME_MAXLEN		(11U)
 
 /*
  * Function: init_storage
