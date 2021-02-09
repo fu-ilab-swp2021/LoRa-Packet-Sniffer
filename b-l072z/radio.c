@@ -258,10 +258,12 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 		/* packet is a join request */
 		/* LoRaWAN join requests should be 23 bytes */
 		if(len != 23) return;
+		puts("Received Join Request packet");
 	}else if(mtype == 0b100 || mtype == 0b010){
 		/* packet is a data up */
 		/* LoRaWAN data up packets should be at least 12 bytes long */
 		if(len < 12) return;
+		puts("Received Data packet");
 	}
 
 	char devAddr[4];
