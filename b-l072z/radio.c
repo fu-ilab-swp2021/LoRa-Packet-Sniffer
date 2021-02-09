@@ -158,14 +158,11 @@ void *_file_start_thread(void *arg)
 	
 	int i = 1;
 	snprintf(filename, sizeof filename, "%s_%d", "data", i);
-	printf("%s\n", filename);
 	while(file_exists_storage(filename)){
-		printf("%s\n", filename);
 		i++;
 		snprintf(filename, sizeof filename, "%s_%d", "data", i);
 	}
-	printf("testwhile\n");
-
+	
 	char* headerLine = "Time,ChannelFreq,RSSI,SNR,MType,DevAddr,ADR,ADRACKReq,ACK,FCnt,FOptsLen,FOpts,FPort\n";
 	write_storage(filename, headerLine, strlen(headerLine));
 
@@ -315,6 +312,9 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 	
 	uint8_t fport = payload[8+fopts_len];
 
+	//TODO adjust rssi and snr to be values expected in file format
+		
+
 	if(write_to_sd_card){
 		char line[150];		
 		
@@ -323,64 +323,67 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 
 		netdev_t *netdev = (netdev_t *)&sx127x;
 		uint32_t chan;
-	       	netdev->driver->get(netdev, NETOPT_CHANNEL_FREQUENCY, &chan, sizeof(chan));
+		netdev->driver->get(netdev, NETOPT_CHANNEL_FREQUENCY, &chan, sizeof(chan));
 		
 		char devAddrString[8];
 		snprintf(devAddrString, sizeof devAddrString, "%02X%02X%02X%02X", (unsigned char)devAddr[0], (unsigned char)devAddr[1], (unsigned char)devAddr[2], (unsigned char)devAddr[3]);	
 	
 		//file format csv
 		//Time,ChannelFreq,RSSI,SNR,MType,DevAddr,ADR,ADRACKReq,ACK,FCnt,FOptsLen,FOpts,FPort	
-		/*if(fopts_len == 0){
-		 	snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%d\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, " ", fport);
+		if(fopts_len == 0){
+		 	snprintf(line, sizeof line, "%lu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, " ", fport);
+			
+			//TODO remove test prints
+			printf("time_since_start: %lu", time_since_start);
+			printf("channel: %lu", chan);
+			printf("rssi: %u", rssi);
+			printf("snr: %d", snr);
+			printf("mtype: %u", mtype);
+			printf("devAddrString: %s", devAddrString);
+			printf("adr: %d", adr);
+			printf("adrack_req: %d", adrack_req);
+			printf("ack: %d", ack);
+			printf("fcnt: %u", fcnt);
+			printf("fopts_len: %d", fopts_len);
+			printf("fopts: %s", " ");
+			printf("fport: %u", fport);
+			printf("\n");
+		
 		}else{
-			char foptsString[fopts_len*2];
+			char foptsString[fopts_len*2+1];
 			for(int i = 0; i<fopts_len; i++){
-				char hex[2];
+				char hex[3];
 				snprintf(hex, sizeof hex, "%02X", (unsigned char)fopts[i]);
 				strncpy(foptsString+i*2, hex, 2);
-			}
-			snprintf(line, sizeof line, "%llu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%d\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, foptsString, fport);
-		}*/
+			}	
+			strncpy(foptsString+fopts_len*2, "\0", 1);			
 
-		char foptsString[fopts_len*2+1];
-		for(int i = 0; i<fopts_len; i++){
-			char hex[3];
-			snprintf(hex, sizeof hex, "%02X", (unsigned char)fopts[i]);
-			strncpy(foptsString+i*2, hex, 2);
-		}	
-		strncpy(foptsString+fopts_len*2, "\0", 1);
+			snprintf(line, sizeof line, "%lu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, foptsString, fport);
 
+			//TODO remove test prints
+			printf("time_since_start: %lu", time_since_start);
+			printf("channel: %lu", chan);
+			printf("rssi: %u", rssi);
+			printf("snr: %d", snr);
+			printf("mtype: %u", mtype);
+			printf("devAddrString: %s", devAddrString);
+			printf("adr: %d", adr);
+			printf("adrack_req: %d", adrack_req);
+			printf("ack: %d", ack);
+			printf("fcnt: %u", fcnt);
+			printf("fopts_len: %d", fopts_len);
+			printf("fopts: %s", foptsString);
+			printf("fport: %u", fport);
+			printf("\n");
 
+		}
 
-		printf("%lu \n", time_since_start);
-		printf("%d \n", strlen(foptsString));
-		printf("%s \n", foptsString);
-		snprintf(line, sizeof line, "%lu, %u, %d, %u, %s, %d, %d, %d, %u, %d, %u \n", chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, fport);
+		//TODO remove test prints
+		printf("line to be written to sd-card:\n");
 		printf("%s\n", line);
-                if(mtype == 0b000){
-                    printf("\tJoin Request Packet:\n");
-                }else if(mtype == 0b100){
-                    printf("\tConfirmed Data Up Packet:\n");
-                }else if(mtype == 0b010){
-                    printf("\tUnconfirmed Data Up Packet:\n");
-                }
-                printf("\t\tRSSI: %d\n", rssi);
-                printf("\t\tSNR: %d\n", snr);
-                
-                printf("\t\tDevice Address:\n\t\t\t");
-                printf("%s", devAddrString);
-                
-                printf("\t\tADR:\t\t%d\n", adr);
-                printf("\t\tADRACK_Req:\t%d\n", adrack_req);
-                printf("\t\tACK:\t\t%d\n", ack);
-                
-                printf("\t\tFrame Count:\t%d\n", fcnt);
-                printf("\t\tFOpts_len:\t%d\n", fopts_len);
-                printf("\t\tFPort:\t%d\n", fport);
-                
-                puts(" ");
+		puts(" ");
 
-		
+
 
 		write_storage(filename, line, strlen(line));
 
