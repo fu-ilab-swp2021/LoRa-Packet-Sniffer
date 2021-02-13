@@ -34,7 +34,7 @@ void start_listen(uint32_t channel);
 void setup_driver(void);
 void * _recv_thread(void *arg);
 void *_file_start_thread(void *arg);
-void processPacket(char *payload, int len, uint8_t rssi, int8_t snr);
+void processPacket(char *payload, int len, int16_t rssi, int8_t snr);
 
 
 /*
@@ -268,7 +268,7 @@ void *_recv_thread(void *arg){
  *
  * returns: void
  */
-void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
+void processPacket(char *payload, int len, int16_t rssi, int8_t snr){
 	
 
 	char macHeader = payload[0];
@@ -310,10 +310,7 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 		strncpy(fopts, payload+8, fopts_len);
 	}
 	
-	uint8_t fport = payload[8+fopts_len];
-
-	//TODO adjust rssi and snr to be values expected in file format
-		
+	uint8_t fport = payload[8+fopts_len];	
 
 	if(write_to_sd_card){
 		char line[150];		
@@ -331,12 +328,12 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 		//file format csv
 		//Time,ChannelFreq,RSSI,SNR,MType,DevAddr,ADR,ADRACKReq,ACK,FCnt,FOptsLen,FOpts,FPort	
 		if(fopts_len == 0){
-		 	snprintf(line, sizeof line, "%lu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, " ", fport);
+		 	snprintf(line, sizeof line, "%lu,%lu,%d,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, " ", fport);
 			
 			//TODO remove test prints
 			printf("time_since_start: %lu", time_since_start);
 			printf("channel: %lu", chan);
-			printf("rssi: %u", rssi);
+			printf("rssi: %d", rssi);
 			printf("snr: %d", snr);
 			printf("mtype: %u", mtype);
 			printf("devAddrString: %s", devAddrString);
@@ -358,7 +355,7 @@ void processPacket(char *payload, int len, uint8_t rssi, int8_t snr){
 			}	
 			strncpy(foptsString+fopts_len*2, "\0", 1);			
 
-			snprintf(line, sizeof line, "%lu,%lu,%u,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, foptsString, fport);
+			snprintf(line, sizeof line, "%lu,%lu,%d,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, foptsString, fport);
 
 			//TODO remove test prints
 			printf("time_since_start: %lu", time_since_start);
