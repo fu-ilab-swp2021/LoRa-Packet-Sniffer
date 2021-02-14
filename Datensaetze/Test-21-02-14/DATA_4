@@ -1,0 +1,2 @@
+Time,ChannelFreq,RSSI,SNR,MType,DevAddr,ADR,ADRACKReq,ACK,FCnt,FOptsLen,FOpts,FPort
+42390445,868299987,244,6,4,6D5D012,0,0,0,0,0, ,2
