@@ -136,6 +136,7 @@ int init_radio(void)
  */
 void start_sniffing(void)
 {
+	/* start file in different thread to not do too much in isr */
 	_file_start_pid = thread_create(stack_file_start, sizeof(stack_file_start), THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST, _file_start_thread, NULL, "file_start_thread");
 	if(_file_start_pid <= KERNEL_PID_UNDEF){
 		puts("Creation of file_start_thread failed");
@@ -193,7 +194,8 @@ void stop_sniffing(void)
  *
  * returns: void
  */
-void start_listen(uint32_t channel){
+void start_listen(uint32_t channel)
+{
 
 	netdev_t *netdev = (netdev_t *)&sx127x;
 
@@ -214,7 +216,8 @@ void start_listen(uint32_t channel){
  *
  * returns: void
  */
-void setup_driver(void){
+void setup_driver(void)
+{
 	
 	netdev_t *netdev = (netdev_t *)&sx127x;
 
@@ -239,7 +242,8 @@ void setup_driver(void){
  *
  * returns: void
  */
-void *_recv_thread(void *arg){
+void *_recv_thread(void *arg)
+{
 	(void)arg;
 	static msg_t _msg_q[SX127X_LORA_MSG_QUEUE];
 	msg_init_queue(_msg_q, SX127X_LORA_MSG_QUEUE);
@@ -268,7 +272,8 @@ void *_recv_thread(void *arg){
  *
  * returns: void
  */
-void processPacket(char *payload, int len, int16_t rssi, int8_t snr){
+void processPacket(char *payload, int len, int16_t rssi, int8_t snr)
+{
 	
 
 	char macHeader = payload[0];
@@ -329,22 +334,6 @@ void processPacket(char *payload, int len, int16_t rssi, int8_t snr){
 		//Time,ChannelFreq,RSSI,SNR,MType,DevAddr,ADR,ADRACKReq,ACK,FCnt,FOptsLen,FOpts,FPort	
 		if(fopts_len == 0){
 		 	snprintf(line, sizeof line, "%lu,%lu,%d,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, " ", fport);
-			
-			//TODO remove test prints
-			printf("time_since_start: %lu", time_since_start);
-			printf("channel: %lu", chan);
-			printf("rssi: %d", rssi);
-			printf("snr: %d", snr);
-			printf("mtype: %u", mtype);
-			printf("devAddrString: %s", devAddrString);
-			printf("adr: %d", adr);
-			printf("adrack_req: %d", adrack_req);
-			printf("ack: %d", ack);
-			printf("fcnt: %u", fcnt);
-			printf("fopts_len: %d", fopts_len);
-			printf("fopts: %s", " ");
-			printf("fport: %u", fport);
-			printf("\n");
 		
 		}else{
 			char foptsString[fopts_len*2+1];
@@ -357,30 +346,7 @@ void processPacket(char *payload, int len, int16_t rssi, int8_t snr){
 
 			snprintf(line, sizeof line, "%lu,%lu,%d,%d,%u,%s,%d,%d,%d,%u,%d,%s,%u\n", time_since_start, chan, rssi, snr, mtype, devAddrString, adr, adrack_req, ack, fcnt, fopts_len, foptsString, fport);
 
-			//TODO remove test prints
-			printf("time_since_start: %lu", time_since_start);
-			printf("channel: %lu", chan);
-			printf("rssi: %u", rssi);
-			printf("snr: %d", snr);
-			printf("mtype: %u", mtype);
-			printf("devAddrString: %s", devAddrString);
-			printf("adr: %d", adr);
-			printf("adrack_req: %d", adrack_req);
-			printf("ack: %d", ack);
-			printf("fcnt: %u", fcnt);
-			printf("fopts_len: %d", fopts_len);
-			printf("fopts: %s", foptsString);
-			printf("fport: %u", fport);
-			printf("\n");
-
 		}
-
-		//TODO remove test prints
-		printf("line to be written to sd-card:\n");
-		printf("%s\n", line);
-		puts(" ");
-
-
 
 		write_storage(filename, line, strlen(line));
 
