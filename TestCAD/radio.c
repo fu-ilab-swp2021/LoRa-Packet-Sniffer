@@ -299,13 +299,8 @@ void *_cad_thread(void *arg)
 
 	while(1){
 
-		for(uint16_t i = 0; i<sizeof(freq)/sizeof(freq[0]); i++){
-			sx127x_set_channel(&sx127x, freq[i]);
-			sx127x_start_cad(&sx127x);
-					
-			
-		}
-
+		sx127x_start_cad(&sx127x);
+		
 	}
 }
 
